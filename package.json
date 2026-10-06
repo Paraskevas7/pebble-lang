@@ -1,0 +1,12 @@
+{
+  "name": "pebble-lang",
+  "version": "0.1.0",
+  "description": "Pebble: a tiny programming language with a tokenizer, parser and tree-walking interpreter, plus a browser playground",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "build": "node tools/build.js",
+    "repl": "node bin/pebble.js"
+  },
+  "bin": { "pebble": "bin/pebble.js" }
+}

@@ -1,0 +1,3 @@
+Hello from Pebble!
+scores: [90, 72, 85, 100] count: 4
+best: 100

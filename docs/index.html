@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pebble Playground</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b2430; --muted:#5d6b7c; --line:#d9dfe6; --accent:#6a4fd8; --code:#f1f3f6; --err:#c62f45; --ok:#1c8a43; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12171d; --card:#1b222b; --fg:#e8edf3; --muted:#9aa8b8; --line:#2c3743; --accent:#a794ff; --code:#10151a; --err:#ff7b8f; --ok:#5fd18a; } }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  main { max-width:820px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1 { font-size:1.35rem; margin:0; } p { margin:0; color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  select, button { font:inherit; padding:8px 12px; border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  @media (prefers-color-scheme: dark) { button.primary { color:#14101f; } }
+  textarea { width:100%; min-height:260px; resize:vertical; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--code); color:var(--fg); font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; tab-size:2; }
+  .keys { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .keys button { padding:6px 12px; font-family:ui-monospace,Menlo,monospace; min-width:40px; }
+  .tabs { display:flex; gap:6px; margin-bottom:8px; }
+  .tabs button[aria-pressed=true] { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  pre { margin:0; padding:10px; background:var(--code); border-radius:8px; overflow-x:auto; font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; word-break:break-word; min-height:3em; max-height:420px; overflow-y:auto; }
+  .error { color:var(--err); margin-top:8px; font-weight:600; }
+  .errline { color:var(--fg); font-weight:400; }
+  .stat { color:var(--muted); font-size:.82rem; margin-top:6px; }
+  footer { color:var(--muted); font-size:.82rem; } a { color:var(--accent); }
+  details summary { cursor:pointer; color:var(--accent); font-weight:600; }
+  details pre { margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>Pebble Playground</h1>
+    <p>Pebble is a tiny programming language, built from scratch: a tokenizer, a parser and an interpreter. Write code below and press Run.</p>
+  </div>
+
+  <section class="card">
+    <div class="bar">
+      <select id="ex" aria-label="Example programs"></select>
+      <button class="primary" id="run">Run</button>
+    </div>
+    <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Pebble code"></textarea>
+    <div class="keys" id="keys"></div>
+  </section>
+
+  <section class="card">
+    <div class="tabs" role="group" aria-label="View">
+      <button data-tab="out" aria-pressed="true">Output</button>
+      <button data-tab="tok" aria-pressed="false">Tokens</button>
+      <button data-tab="ast" aria-pressed="false">Syntax tree</button>
+    </div>
+    <pre id="view" aria-live="polite"></pre>
+    <div class="error" id="err" hidden></div>
+    <div class="stat" id="stat"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Language cheat sheet</summary>
+<pre>let x = 5                 # variable
+x = x + 1                 # change it
+let xs = [1, 2, 3]        # list; xs[0] = 9
+print("hi", x)            # output
+
+if x > 3 { print("big") } else { print("small") }
+while x &lt; 10 { x = x + 1 }
+for item in [1, 2, 3] { print(item) }   # also range(5)
+
+fn square(n) { return n * n }
+let add = fn(a, b) { return a + b }     # functions are values
+
+and  or  not   == != &lt; &lt;= &gt; &gt;=   + - * / %
+builtins: print len str num type range push pop sort reverse
+          join split upper lower abs floor sqrt min max
+Statements end with a new line or ;   Comments start with #</pre>
+    </details>
+  </section>
+
+  <footer>Source and tests: <a href="https://github.com/Paraskevas7/pebble-lang">github.com/Paraskevas7/pebble-lang</a>. Runs entirely in your browser.</footer>
+</main>
+<script src="pebble.js"></script>
+<script src="examples.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var src = $('src'), view = $('view'), err = $('err'), stat = $('stat'), ex = $('ex'), tab = 'out';
+  var NAMES = { hello: 'Hello, Pebble', fizzbuzz: 'FizzBuzz', fibonacci: 'Fibonacci (recursion)', primes: 'Prime sieve', sorting: 'Bubble sort', closures: 'Closures' };
+
+  Object.keys(window.PEBBLE_EXAMPLES).forEach(function (k) {
+    var o = document.createElement('option'); o.value = k; o.textContent = NAMES[k] || k; ex.appendChild(o);
+  });
+  ['{', '}', '(', ')', '[', ']', '"', '=', ',', '#', '  '].forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = k.trim() || 'tab'; b.setAttribute('aria-label', 'insert ' + (k.trim() || 'two spaces'));
+    b.onmousedown = function (e) { e.preventDefault(); };
+    b.onclick = function () {
+      var s = src.selectionStart, e = src.selectionEnd;
+      src.value = src.value.slice(0, s) + k + src.value.slice(e);
+      src.selectionStart = src.selectionEnd = s + k.length; src.focus();
+    };
+    $('keys').appendChild(b);
+  });
+
+  function show() {
+    err.hidden = true; err.textContent = ''; view.textContent = ''; stat.textContent = '';
+    var code = src.value;
+    try {
+      if (tab === 'tok') {
+        view.textContent = Pebble.tokenize(code).map(function (t) { return t.line + ':' + t.col + '\t' + t.type + '\t' + JSON.stringify(t.value); }).join('\n');
+      } else if (tab === 'ast') {
+        view.textContent = JSON.stringify(Pebble.parse(code), function (k, v) { return k === 'line' || k === 'col' ? undefined : v; }, 2);
+      } else {
+        var r = Pebble.run(code, { maxSteps: 2000000 });
+        view.textContent = r.output || (r.error ? '' : '(no output)');
+        view.scrollTop = view.scrollHeight;
+        if (r.error) fail(r.error, code); else stat.textContent = 'Finished in ' + r.steps + ' steps.';
+      }
+    } catch (e) {
+      if (e && e.line) fail(e, code); else { err.hidden = false; err.textContent = 'Unexpected problem: ' + e; }
+    }
+  }
+  function fail(e, code) {
+    err.hidden = false;
+    err.textContent = e.kind + ' at line ' + e.line + ', column ' + e.col + ': ' + e.message;
+    var l = code.split('\n')[e.line - 1];
+    if (l !== undefined) {
+      var d = document.createElement('div'); d.className = 'errline';
+      d.style.fontFamily = 'ui-monospace,Menlo,monospace'; d.style.whiteSpace = 'pre-wrap';
+      d.textContent = e.line + ' | ' + l + '\n' + ' '.repeat(String(e.line).length + 3 + Math.max(0, e.col - 1)) + '^';
+      err.appendChild(d);
+    }
+  }
+
+  $('run').onclick = function () { tab = 'out'; setTabs(); show(); };
+  ex.onchange = function () { src.value = window.PEBBLE_EXAMPLES[ex.value]; tab = 'out'; setTabs(); show(); };
+  function setTabs() { document.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.tab === tab); }); }
+  document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { tab = b.dataset.tab; setTabs(); show(); }; });
+  src.addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); $('run').click(); } });
+
+  ex.value = 'closures'; src.value = window.PEBBLE_EXAMPLES.closures; show();
+})();
+</script>
+</body>
+</html>
